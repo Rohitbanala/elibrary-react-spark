@@ -5,21 +5,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, UserX, UserCheck, Search } from 'lucide-react';
+import { Eye, Search, BookOpen } from 'lucide-react';
 
 const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const { toast } = useToast();
 
-  // Mock user data
+  // Mock user data - removed restriction status
   const [users, setUsers] = useState([
     {
       id: 1,
       name: 'John Doe',
       email: 'john.doe@email.com',
       status: 'active',
-      borrowedBooks: ['The Great Gatsby', '1984'],
+      borrowedBooks: [
+        { title: 'The Great Gatsby', dueDate: '2024-01-20', isOverdue: false },
+        { title: '1984', dueDate: '2024-01-15', isOverdue: true }
+      ],
       borrowHistory: 15,
       joinDate: '2023-01-15'
     },
@@ -28,7 +31,9 @@ const UserManagement = () => {
       name: 'Jane Smith',
       email: 'jane.smith@email.com',
       status: 'active',
-      borrowedBooks: ['To Kill a Mockingbird'],
+      borrowedBooks: [
+        { title: 'To Kill a Mockingbird', dueDate: '2024-01-25', isOverdue: false }
+      ],
       borrowHistory: 8,
       joinDate: '2023-03-22'
     },
@@ -36,7 +41,7 @@ const UserManagement = () => {
       id: 3,
       name: 'Bob Johnson',
       email: 'bob.johnson@email.com',
-      status: 'restricted',
+      status: 'active',
       borrowedBooks: [],
       borrowHistory: 23,
       joinDate: '2022-11-10'
@@ -50,14 +55,17 @@ const UserManagement = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const handleStatusChange = (userId: number, newStatus: 'active' | 'restricted') => {
+  const handleReturnOverdueBook = (userId: number, bookTitle: string) => {
     setUsers(users.map(user => 
-      user.id === userId ? { ...user, status: newStatus } : user
+      user.id === userId ? { 
+        ...user, 
+        borrowedBooks: user.borrowedBooks.filter(book => book.title !== bookTitle)
+      } : user
     ));
     
     toast({
-      title: "Success",
-      description: `User ${newStatus === 'active' ? 'activated' : 'restricted'} successfully`,
+      title: "Book Returned",
+      description: `"${bookTitle}" has been automatically returned due to overdue status`,
     });
   };
 
@@ -72,7 +80,7 @@ const UserManagement = () => {
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-        <p className="text-gray-600 mt-2">Manage library users and their access permissions</p>
+        <p className="text-gray-600 mt-2">Manage library users and handle overdue books</p>
       </div>
 
       <Card className="mb-6 border-0 shadow-md">
@@ -95,7 +103,6 @@ const UserManagement = () => {
                 <SelectContent>
                   <SelectItem value="all">All Users</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="restricted">Restricted</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -129,25 +136,34 @@ const UserManagement = () => {
                     </td>
                     <td className="py-3 px-4 text-gray-600">{user.email}</td>
                     <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        user.status === 'active' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         {user.status}
                       </span>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="text-sm">
+                      <div className="text-sm space-y-1">
                         {user.borrowedBooks.length > 0 ? (
-                          <div>
-                            {user.borrowedBooks.slice(0, 2).map((book, index) => (
-                              <div key={index} className="text-gray-600">{book}</div>
-                            ))}
-                            {user.borrowedBooks.length > 2 && (
-                              <div className="text-gray-400">+{user.borrowedBooks.length - 2} more</div>
-                            )}
-                          </div>
+                          user.borrowedBooks.map((book, index) => (
+                            <div key={index} className="flex items-center justify-between">
+                              <span className={book.isOverdue ? 'text-red-600' : 'text-gray-600'}>
+                                {book.title}
+                                {book.isOverdue && (
+                                  <span className="text-xs ml-1">(Overdue)</span>
+                                )}
+                              </span>
+                              {book.isOverdue && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleReturnOverdueBook(user.id, book.title)}
+                                  className="ml-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <BookOpen className="w-3 h-3 mr-1" />
+                                  Return
+                                </Button>
+                              )}
+                            </div>
+                          ))
                         ) : (
                           <span className="text-gray-400">No current borrows</span>
                         )}
@@ -158,34 +174,13 @@ const UserManagement = () => {
                       {new Date(user.joinDate).toLocaleDateString()}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewDetails(user)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        {user.status === 'active' ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleStatusChange(user.id, 'restricted')}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <UserX className="w-4 h-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleStatusChange(user.id, 'active')}
-                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                          >
-                            <UserCheck className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewDetails(user)}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
                     </td>
                   </tr>
                 ))}
